@@ -11,7 +11,7 @@ CREATE TABLE teams (
 
 -- 2. Players Table
 CREATE TABLE players (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     team TEXT NOT NULL,
     position TEXT NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE draft_log (
     round INTEGER NOT NULL,
     pick_number INTEGER NOT NULL,
     team_id UUID REFERENCES teams(id) NOT NULL,
-    player_id UUID REFERENCES players(id) NOT NULL,
+    player_id TEXT REFERENCES players(id) NOT NULL,
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -35,7 +35,7 @@ CREATE TABLE draft_log (
 CREATE TABLE keeper_lists (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     team_id UUID REFERENCES teams(id) NOT NULL,
-    player_id UUID REFERENCES players(id) NOT NULL,
+    player_id TEXT REFERENCES players(id) NOT NULL,
     UNIQUE(team_id, player_id)
 );
 
