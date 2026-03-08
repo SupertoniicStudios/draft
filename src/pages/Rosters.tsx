@@ -1,0 +1,134 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
+import type { Team } from '../hooks/useDraftState';
+import type { Player } from '../hooks/usePlayers';
+
+interface RosterPlayer extends Player {
+    isKeeper?: boolean;
+}
+
+export function Rosters() {
+    const [teams, setTeams] = useState<Team[]>([]);
+    const [rosters, setRosters] = useState<Record<string, RosterPlayer[]>>({});
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchRosters();
+
+        // Subscribe to new picks and keepers
+        const channel = supabase.channel('rosters_channel')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => {
+                fetchRosters(); // Re-fetch on any player update (drafted/undrafted)
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'keeper_lists' }, () => {
+                fetchRosters();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
+    async function fetchRosters() {
+        setLoading(true);
+
+        // 1. Fetch Teams
+        const { data: teamsData } = await supabase.from('teams').select('*');
+        if (!teamsData) return;
+        setTeams(teamsData);
+
+        // 2. Fetch all drafted players mapping team
+        const { data: draftedPlayers } = await supabase.from('players').select('*').eq('is_drafted', true);
+
+        // 3. Fetch keepers
+        const { data: keeperLists } = await supabase.from('keeper_lists').select(`
+      team_id,
+      player_id,
+      players:players(*)
+    `);
+
+        const newRosters: Record<string, RosterPlayer[]> = {};
+        teamsData.forEach(t => {
+            newRosters[t.id] = [];
+        });
+
+        if (keeperLists) {
+            keeperLists.forEach(k => {
+                if (newRosters[k.team_id] && k.players) {
+                    newRosters[k.team_id].push({ ...(k.players as unknown as Player), isKeeper: true });
+                }
+            });
+        }
+
+        if (draftedPlayers) {
+            draftedPlayers.forEach(p => {
+                if (p.drafted_by_team_id && newRosters[p.drafted_by_team_id]) {
+                    // ensure not already added as a keeper (though they shouldn't overlap ideally)
+                    if (!newRosters[p.drafted_by_team_id].find(existing => existing.id === p.id)) {
+                        newRosters[p.drafted_by_team_id].push({ ...(p as Player), isKeeper: false });
+                    }
+                }
+            });
+        }
+
+        setRosters(newRosters);
+        setLoading(false);
+    }
+
+    return (
+        <div className="flex flex-col gap-6 w-full h-full">
+            <h2>Team Rosters</h2>
+
+            {loading && <p>Loading rosters...</p>}
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem' }}>
+                {teams.map(team => {
+                    const roster = rosters[team.id] || [];
+                    // A standard roster is 26 players (12 keepers + 14 draft rounds)
+                    const spots = Array.from({ length: 26 }, (_, i) => roster[i] || null);
+
+                    return (
+                        <div key={team.id} className="card flex-col gap-2" style={{ padding: '1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                <h3 style={{ fontSize: '1rem' }}>{team.name}</h3>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{roster.length}/26</span>
+                            </div>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                                {team.owner_name}
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                                {spots.map((player, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            padding: '0.25rem 0.5rem',
+                                            backgroundColor: player ? 'var(--bg-tertiary)' : 'transparent',
+                                            border: player ? 'none' : '1px dashed var(--border-color)',
+                                            borderRadius: '0.25rem',
+                                            minHeight: '28px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            fontSize: '0.875rem',
+                                            color: player ? (player.isKeeper ? 'var(--warning)' : 'var(--text-primary)') : 'var(--text-muted)'
+                                        }}
+                                    >
+                                        {player ? (
+                                            <div className="flex justify-between w-full">
+                                                <span>{player.name} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{player.position}</span></span>
+                                                {player.isKeeper && <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>K</span>}
+                                            </div>
+                                        ) : (
+                                            <span style={{ fontSize: '0.75rem' }}>Empty Pick {index + 1}</span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
