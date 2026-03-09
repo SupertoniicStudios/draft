@@ -5,6 +5,8 @@ import { useDraftState } from '../hooks/useDraftState';
 import { useWatchlist } from '../hooks/useWatchlist';
 import { supabase } from '../lib/supabase';
 import { Star } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 export function BigBoard() {
     const activeDraftId = localStorage.getItem('active_draft_id');
@@ -14,6 +16,9 @@ export function BigBoard() {
     const [positionFilter, setPositionFilter] = useState('');
     const [draftingId, setDraftingId] = useState<string | null>(null);
     const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
+
+    // Modal state
+    const [playerToDraft, setPlayerToDraft] = useState<Player | null>(null);
 
     const [userId, setUserId] = useState<string | null>(null);
     const [userTeamId, setUserTeamId] = useState<string | null>(null);
@@ -63,20 +68,27 @@ export function BigBoard() {
         });
     }, [players, search, positionFilter, showWatchlistOnly, watchlist]);
 
-    const handleDraftPlayer = async (player: Player) => {
+    const handleDraftPlayer = (player: Player) => {
         if (!currentPick || !currentTeam) {
-            alert("Draft is not active or no pick is scheduled.");
+            toast.error("Draft is not active or no pick is scheduled.");
             return;
         }
 
         if (currentTeam.id !== userTeamId) {
-            alert("It is not your turn to draft!");
+            toast.error("It is not your turn to draft!");
             return;
         }
 
-        if (!window.confirm(`Draft ${player.name} to ${currentTeam.name}?`)) return;
+        setPlayerToDraft(player);
+    };
 
-        setDraftingId(player.id);
+    const confirmDraftPlayer = async () => {
+        if (!playerToDraft || !currentPick || !currentTeam) return;
+
+        setDraftingId(playerToDraft.id);
+        const player = playerToDraft;
+        setPlayerToDraft(null); // Close modal immediately
+
         try {
             const { error: logError } = await supabase.from('draft_log').insert({
                 draft_id: activeDraftId,
@@ -88,8 +100,9 @@ export function BigBoard() {
             if (logError) throw logError;
             await fetchState();
             // No longer updating the global `players` table with `is_drafted`
+            toast.success(`Drafted ${player.name} to ${currentTeam.name}!`);
         } catch (err: any) {
-            alert("Error drafting player: " + err.message);
+            toast.error("Error drafting player: " + err.message);
         } finally {
             setDraftingId(null);
         }
@@ -189,6 +202,16 @@ export function BigBoard() {
                     </table>
                 )}
             </div>
+
+            <ConfirmModal
+                isOpen={playerToDraft !== null}
+                title="Confirm Draft Pick"
+                message={`Are you sure you want to draft ${playerToDraft?.name} to ${currentTeam?.name}?`}
+                confirmText="Draft Player"
+                cancelText="Cancel"
+                onConfirm={confirmDraftPlayer}
+                onCancel={() => setPlayerToDraft(null)}
+            />
         </div>
     );
 }

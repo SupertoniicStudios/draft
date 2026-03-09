@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { ClaimTeam } from '../components/ClaimTeam';
 import { DraftOrderSetup } from '../components/DraftOrderSetup';
 import { DraftProvider } from '../contexts/DraftContext';
+import toast from 'react-hot-toast';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 // Temporary type until we update the hooks
 interface DraftLobby {
@@ -23,6 +25,10 @@ export function DraftSetup() {
     const [creating, setCreating] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
     const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
+
+    // Modal state
+    const [draftToStart, setDraftToStart] = useState<{ id: string, orderedTeamIds: string[] } | null>(null);
+    const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
 
     // This will be handled by the updated useDraftState later, but for Setup we need to fetch all lobbies
     useEffect(() => {
@@ -79,17 +85,25 @@ export function DraftSetup() {
             // For now, we'll wait to implement `draft_order` generation
 
             setNewDraftName('');
-            alert(`Draft ${draftData.name} created!`);
+            toast.success(`Draft ${draftData.name} created!`);
         } catch (err: any) {
-            alert("Error creating draft: " + err.message);
+            toast.error("Error creating draft: " + err.message);
         } finally {
             setCreating(false);
         }
     };
 
-    const handleStartDraft = async (draftId: string, orderedTeamIds: string[]) => {
-        if (!window.confirm("Ready to start the draft? This will generate the exact order shown and lock the lobby.")) return;
+    const handleStartDraft = (draftId: string, orderedTeamIds: string[]) => {
+        setDraftToStart({ id: draftId, orderedTeamIds });
+    };
+
+    const confirmStartDraft = async () => {
+        if (!draftToStart) return;
+
         setCreating(true);
+        const { id: draftId, orderedTeamIds } = draftToStart;
+        setDraftToStart(null); // Close modal
+
         try {
             const draftPicks = [];
             const ROUNDS = 14;
@@ -116,14 +130,14 @@ export function DraftSetup() {
             const { error: updateError } = await supabase.from('drafts').update({ status: 'active' }).eq('id', draftId);
             if (updateError) throw updateError;
 
-            alert("Draft Started!");
+            toast.success("Draft Started!");
         } catch (err: any) {
-            alert("Error starting draft: " + err.message);
+            toast.error("Error starting draft: " + err.message);
         } finally {
             setCreating(false);
             fetchDrafts(); // refresh lobby status immediately
         }
-    }
+    };
 
     const handleEnterLobby = (draftId: string) => {
         setSelectedDraftId(draftId);
@@ -135,8 +149,16 @@ export function DraftSetup() {
         window.location.reload();
     };
 
-    const handleDeleteDraft = async (draftId: string) => {
-        if (!window.confirm("Are you sure? This deletes the draft and all picks forever.")) return;
+    const handleDeleteDraft = (draftId: string) => {
+        setDraftToDelete(draftId);
+    };
+
+    const confirmDeleteDraft = async () => {
+        if (!draftToDelete) return;
+
+        const draftId = draftToDelete;
+        setDraftToDelete(null); // Close modal
+
         try {
             const { error } = await supabase.from('drafts').delete().eq('id', draftId);
             if (error) throw error;
@@ -144,10 +166,11 @@ export function DraftSetup() {
                 localStorage.removeItem('active_draft_id');
             }
             fetchDrafts(); // Refresh the list
+            toast.success("Draft deleted.");
         } catch (err: any) {
-            alert("Error deleting draft: " + err.message);
+            toast.error("Error deleting draft: " + err.message);
         }
-    }
+    };
 
     if (selectedDraftId) {
         const d = drafts.find(d => d.id === selectedDraftId);
@@ -187,6 +210,16 @@ export function DraftSetup() {
                         )}
                     </DraftProvider>
                 </div>
+
+                <ConfirmModal
+                    isOpen={draftToStart !== null}
+                    title="Start Draft"
+                    message="Ready to start the draft? This will generate the exact order shown and lock the lobby."
+                    confirmText="Launch Draft"
+                    cancelText="Cancel"
+                    onConfirm={confirmStartDraft}
+                    onCancel={() => setDraftToStart(null)}
+                />
             </div>
         );
     }
@@ -279,6 +312,17 @@ export function DraftSetup() {
                     </table>
                 )}
             </div>
+
+            <ConfirmModal
+                isOpen={draftToDelete !== null}
+                title="Delete Draft Room"
+                message="Are you sure? This deletes the draft and all picks forever."
+                confirmText="Delete Room"
+                cancelText="Cancel"
+                isDestructive={true}
+                onConfirm={confirmDeleteDraft}
+                onCancel={() => setDraftToDelete(null)}
+            />
         </div>
     );
 }

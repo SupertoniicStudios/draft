@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 export function Auth() {
     const [loading, setLoading] = useState(false);
@@ -20,7 +21,7 @@ export function Auth() {
             } else {
                 const { error } = await supabase.auth.signUp({ email, password });
                 if (error) throw error;
-                alert('Check your email for the login link!');
+                toast.success('Check your email for the login link!');
             }
         } catch (err: any) {
             setError(err.message || 'An error occurred during authentication.');

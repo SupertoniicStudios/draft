@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useDraftState } from '../hooks/useDraftState';
+import toast from 'react-hot-toast';
 
 export function ClaimTeam({ draftId }: { draftId: string }) {
     const { teams, loading } = useDraftState(draftId);
     const [claiming, setClaiming] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
+    const [displayName, setDisplayName] = useState<string>('Owner');
 
     useEffect(() => {
         supabase.auth.getUser().then(({ data }) => {
             setUserId(data.user?.id || null);
+            setDisplayName(data.user?.user_metadata?.display_name || 'Owner');
         });
     }, []);
 
@@ -20,13 +23,16 @@ export function ClaimTeam({ draftId }: { draftId: string }) {
         if (!userId) return;
         setClaiming(true);
         try {
-            const { error } = await supabase.from('teams').update({ user_id: userId }).eq('id', teamId);
+            const { error } = await supabase
+                .from('teams')
+                .update({ user_id: userId, owner_name: displayName })
+                .eq('id', teamId);
             if (error) throw error;
             // The Realtime hook in useDraftState will catch this and update
             const teamInfo = unassignedTeams.find(t => t.id === teamId);
-            alert(`You have successfully claimed ${teamInfo?.name}!`);
+            toast.success(`You have successfully claimed ${teamInfo?.name}!`);
         } catch (err: any) {
-            alert("Error claiming team: " + err.message);
+            toast.error("Error claiming team: " + err.message);
         } finally {
             setClaiming(false);
         }

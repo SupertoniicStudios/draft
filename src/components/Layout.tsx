@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { LogOut, LayoutDashboard, Users, Settings } from 'lucide-react';
+import { LogOut, LayoutDashboard, Users, Settings, UserCircle } from 'lucide-react';
 import { useDraftState } from '../hooks/useDraftState';
 import { UpcomingPicks } from './UpcomingPicks';
 import { DraftProvider } from '../contexts/DraftContext';
@@ -95,6 +95,18 @@ function LayoutInner({ activeDraftId }: { activeDraftId: string | null }) {
                             </Link>
                         </div>
                     )}
+
+                    <Link to="/profile" className="btn" style={{
+                        backgroundColor: location.pathname === '/profile' ? 'var(--bg-primary)' : 'var(--bg-tertiary)',
+                        color: 'var(--text-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        textDecoration: 'none'
+                    }}>
+                        <UserCircle size={18} />
+                        Profile
+                    </Link>
 
                     <button onClick={handleLogout} className="btn" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
                         <LogOut size={16} />

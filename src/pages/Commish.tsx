@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useDraftState } from '../hooks/useDraftState';
 import { useBigBoardPlayers } from '../hooks/usePlayers';
 import Papa from 'papaparse';
+import toast from 'react-hot-toast';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 export function Commish() {
     const activeDraftId = localStorage.getItem('active_draft_id');
@@ -28,9 +30,20 @@ export function Commish() {
     const [tradePick, setTradePick] = useState<number>(1);
     const [tradeNewTeamId, setTradeNewTeamId] = useState('');
 
-    const handleUndo = async () => {
-        if (draftLog.length === 0) return alert("No picks to undo.");
-        if (!window.confirm("Are you sure you want to undo the last pick?")) return;
+    // Modal state
+    const [showUndoConfirm, setShowUndoConfirm] = useState(false);
+    const [showUploadConfirm, setShowUploadConfirm] = useState(false);
+
+    const checkUndo = () => {
+        if (draftLog.length === 0) {
+            toast.error("No picks to undo.");
+            return;
+        }
+        setShowUndoConfirm(true);
+    };
+
+    const confirmUndo = async () => {
+        setShowUndoConfirm(false);
         setUndoing(true);
         try {
             const lastPick = draftLog[draftLog.length - 1]; // sorted by timestamp ASC
@@ -42,16 +55,19 @@ export function Commish() {
 
             // Player is_drafted state is handled dynamically now, no need to update players table
 
-            alert("Pick undone successfully.");
+            toast.success("Pick undone successfully.");
         } catch (err: any) {
-            alert("Error undoing: " + err.message);
+            toast.error("Error undoing: " + err.message);
         } finally {
             setUndoing(false);
         }
     };
 
     const handleForcePick = async () => {
-        if (!forcePlayerId || !forceTeamId || !currentPick) return alert("Select player, team, and ensure draft is active.");
+        if (!forcePlayerId || !forceTeamId || !currentPick) {
+            toast.error("Select player, team, and ensure draft is active.");
+            return;
+        }
         try {
             // 1. Log
             const { error: logError } = await supabase.from('draft_log').insert({
@@ -66,18 +82,26 @@ export function Commish() {
 
             // No need to update global players table
 
-            alert("Force pick successful.");
+            toast.success("Force pick successful.");
             setForcePlayerId('');
             setForcePlayerSearch('');
-            setForceTeamId('');
+            // forceTeamId is auto-populated by useEffect, don't clear it
         } catch (err: any) {
-            alert("Error forcing pick: " + err.message);
+            toast.error("Error forcing pick: " + err.message);
         }
     };
 
-    const handleUploadKeepers = async () => {
-        if (!csvFile) return alert("Select a CSV file.");
-        if (!window.confirm("This will overwrite existing keepers. Ensure your Team Names in the CSV EXACTLY match the Team Names in the Database. Proceed?")) return;
+    const checkUploadKeepers = () => {
+        if (!csvFile) {
+            toast.error("Select a CSV file.");
+            return;
+        }
+        setShowUploadConfirm(true);
+    };
+
+    const confirmUploadKeepers = async () => {
+        setShowUploadConfirm(false);
+        if (!csvFile) return;
 
         setUploading(true);
         setUploadText("Parsing CSV...");
@@ -125,9 +149,9 @@ export function Commish() {
                         successCount++;
                     }
 
-                    alert(`Keeper Upload Complete.\nSuccessfully added: ${successCount}\nErrors/Skipped: ${errorCount}`);
+                    toast.success(`Keeper Upload Complete.\nSuccessfully added: ${successCount}\nErrors/Skipped: ${errorCount}`);
                 } catch (err: any) {
-                    alert("Error: " + err.message);
+                    toast.error("Error: " + err.message);
                 } finally {
                     setUploading(false);
                     setUploadText("Upload & Parse CSV");
@@ -138,16 +162,19 @@ export function Commish() {
     };
 
     const handleTradePick = async () => {
-        if (!tradeNewTeamId) return alert("Select a team");
+        if (!tradeNewTeamId) {
+            toast.error("Select a team");
+            return;
+        }
         try {
             const { error } = await supabase.from('draft_order')
                 .update({ current_team_id: tradeNewTeamId })
                 .eq('round', tradeRound)
                 .eq('pick_number', tradePick);
             if (error) throw error;
-            alert("Pick traded successfully!");
+            toast.success("Pick traded successfully!");
         } catch (err: any) {
-            alert("Error trading: " + err.message);
+            toast.error("Error trading: " + err.message);
         }
     };
 
@@ -221,7 +248,7 @@ export function Commish() {
                     </div>
 
                     <div className="flex gap-4" style={{ marginTop: '1rem' }}>
-                        <button className="btn btn-danger w-full" onClick={handleUndo} disabled={undoing || !draftLog || draftLog.length === 0}>
+                        <button className="btn btn-danger w-full" onClick={checkUndo} disabled={undoing || !draftLog || draftLog.length === 0}>
                             {undoing ? 'Undoing...' : 'Undo Last Pick'}
                         </button>
                     </div>
@@ -254,12 +281,33 @@ export function Commish() {
                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Upload a CSV with headers `team_name` and `player_id` (Yahoo ID). This will assign the players to the team's keeper list and mark them as drafted.</p>
                     <div className="flex flex-col gap-2" style={{ marginTop: '1rem' }}>
                         <input type="file" accept=".csv" onChange={e => setCsvFile(e.target.files ? e.target.files[0] : null)} />
-                        <button className="btn btn-primary" onClick={handleUploadKeepers} disabled={uploading}>
+                        <button className="btn btn-primary" onClick={checkUploadKeepers} disabled={uploading}>
                             {uploadText}
                         </button>
                     </div>
                 </div>
             </div>
+
+            <ConfirmModal
+                isOpen={showUndoConfirm}
+                title="Undo Pick"
+                message="Are you sure you want to undo the last pick? This action cannot be reversed."
+                confirmText="Undo Pick"
+                cancelText="Cancel"
+                isDestructive={true}
+                onConfirm={confirmUndo}
+                onCancel={() => setShowUndoConfirm(false)}
+            />
+
+            <ConfirmModal
+                isOpen={showUploadConfirm}
+                title="Upload Keepers CSV"
+                message="This will read the CSV and assign the players to the team's keeper list and mark them as drafted. Ensure your Team Names in the CSV EXACTLY match the Team Names in the Database."
+                confirmText="Process CSV"
+                cancelText="Cancel"
+                onConfirm={confirmUploadKeepers}
+                onCancel={() => setShowUploadConfirm(false)}
+            />
         </div>
     );
 }
