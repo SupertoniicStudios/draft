@@ -8,6 +8,7 @@ interface RosterPlayer extends Player {
 }
 
 export function Rosters() {
+    const activeDraftId = localStorage.getItem('active_draft_id');
     const [teams, setTeams] = useState<Team[]>([]);
     const [rosters, setRosters] = useState<Record<string, RosterPlayer[]>>({});
     const [loading, setLoading] = useState(true);
@@ -31,22 +32,31 @@ export function Rosters() {
     }, []);
 
     async function fetchRosters() {
+        if (!activeDraftId) {
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
 
         // 1. Fetch Teams
-        const { data: teamsData } = await supabase.from('teams').select('*');
+        const { data: teamsData } = await supabase.from('teams').select('*').eq('draft_id', activeDraftId);
         if (!teamsData) return;
         setTeams(teamsData);
 
-        // 2. Fetch all drafted players mapping team
-        const { data: draftedPlayers } = await supabase.from('players').select('*').eq('is_drafted', true);
+        // 2. Fetch all drafted players via draft_log for this lobby
+        const { data: draftLogData } = await supabase.from('draft_log').select(`
+            team_id,
+            player_id,
+            players:players(*)
+        `).eq('draft_id', activeDraftId);
 
-        // 3. Fetch keepers
+        // 3. Fetch keepers for this lobby
         const { data: keeperLists } = await supabase.from('keeper_lists').select(`
-      team_id,
-      player_id,
-      players:players(*)
-    `);
+            team_id,
+            player_id,
+            players:players(*)
+        `).eq('draft_id', activeDraftId);
 
         const newRosters: Record<string, RosterPlayer[]> = {};
         teamsData.forEach(t => {
@@ -61,13 +71,10 @@ export function Rosters() {
             });
         }
 
-        if (draftedPlayers) {
-            draftedPlayers.forEach(p => {
-                if (p.drafted_by_team_id && newRosters[p.drafted_by_team_id]) {
-                    // ensure not already added as a keeper (though they shouldn't overlap ideally)
-                    if (!newRosters[p.drafted_by_team_id].find(existing => existing.id === p.id)) {
-                        newRosters[p.drafted_by_team_id].push({ ...(p as Player), isKeeper: false });
-                    }
+        if (draftLogData) {
+            draftLogData.forEach(log => {
+                if (newRosters[log.team_id] && log.players) {
+                    newRosters[log.team_id].push({ ...(log.players as unknown as Player), isKeeper: false });
                 }
             });
         }

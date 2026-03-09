@@ -6,6 +6,7 @@ import { Layout } from './components/Layout';
 import { BigBoard } from './pages/BigBoard';
 import { Rosters } from './pages/Rosters';
 import { Commish } from './pages/Commish';
+import { DraftSetup } from './pages/DraftSetup';
 
 function App() {
   const [session, setSession] = useState<any>(null);
@@ -41,6 +42,7 @@ function App() {
           <Route index element={<BigBoard />} />
           <Route path="rosters" element={<Rosters />} />
           <Route path="commish" element={<Commish />} />
+          <Route path="setup" element={<DraftSetup />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

@@ -1,24 +1,56 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useBigBoardPlayers } from '../hooks/usePlayers';
 import type { Player } from '../hooks/usePlayers';
 import { useDraftState } from '../hooks/useDraftState';
+import { useWatchlist } from '../hooks/useWatchlist';
 import { supabase } from '../lib/supabase';
+import { Star } from 'lucide-react';
 
 export function BigBoard() {
-    const { players, loading } = useBigBoardPlayers();
-    const { currentPick, currentTeam } = useDraftState();
+    const activeDraftId = localStorage.getItem('active_draft_id');
+    const { players, loading } = useBigBoardPlayers(activeDraftId);
+    const { currentPick, currentTeam } = useDraftState(activeDraftId);
     const [search, setSearch] = useState('');
     const [positionFilter, setPositionFilter] = useState('');
     const [draftingId, setDraftingId] = useState<string | null>(null);
+    const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
+
+    const [userId, setUserId] = useState<string | null>(null);
+
+    useEffect(() => {
+        supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id || null));
+    }, []);
+
+    const { watchlist, toggleWatch } = useWatchlist(userId);
 
     const filteredPlayers = useMemo(() => {
+        const removeDiacritics = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const searchNormalized = removeDiacritics(search.toLowerCase());
+
         return players.filter(p => {
             if (p.is_drafted) return false;
-            if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-            if (positionFilter && p.position !== positionFilter && !p.position.includes(positionFilter)) return false;
+
+            if (search && !removeDiacritics(p.name.toLowerCase()).includes(searchNormalized)) return false;
+
+            if (positionFilter) {
+                const playerPositions = p.position.split(/[\s,\/]+/).filter(Boolean);
+
+                let matchesPos = false;
+                if (positionFilter === 'IF') {
+                    matchesPos = playerPositions.some(pos => ['1B', '2B', '3B', 'SS'].includes(pos));
+                } else if (positionFilter === 'OF') {
+                    matchesPos = playerPositions.some(pos => ['OF', 'LF', 'CF', 'RF'].includes(pos));
+                } else {
+                    matchesPos = playerPositions.includes(positionFilter);
+                }
+
+                if (!matchesPos) return false;
+            }
+
+            if (showWatchlistOnly && !watchlist.find(w => w.player_id === p.id)) return false;
             return true;
         });
-    }, [players, search, positionFilter]);
+    }, [players, search, positionFilter, showWatchlistOnly, watchlist]);
 
     const handleDraftPlayer = async (player: Player) => {
         if (!currentPick || !currentTeam) {
@@ -26,26 +58,19 @@ export function BigBoard() {
             return;
         }
 
-        // Check if Commish or active user logic here, for now allowing it
         if (!window.confirm(`Draft ${player.name} to ${currentTeam.name}?`)) return;
 
         setDraftingId(player.id);
         try {
-            // 1. Insert into draft_log
             const { error: logError } = await supabase.from('draft_log').insert({
+                draft_id: activeDraftId,
                 round: currentPick.round,
                 pick_number: currentPick.pick_number,
                 team_id: currentTeam.id,
                 player_id: player.id
             });
             if (logError) throw logError;
-
-            // 2. Update player as drafted
-            const { error: updateError } = await supabase.from('players')
-                .update({ is_drafted: true, drafted_by_team_id: currentTeam.id })
-                .eq('id', player.id);
-            if (updateError) throw updateError;
-
+            // No longer updating the global `players` table with `is_drafted`
         } catch (err: any) {
             alert("Error drafting player: " + err.message);
         } finally {
@@ -71,10 +96,20 @@ export function BigBoard() {
                         <option value="2B">2B</option>
                         <option value="3B">3B</option>
                         <option value="SS">SS</option>
+                        <option value="IF">IF</option>
                         <option value="OF">OF</option>
+                        <option value="Util">Util</option>
                         <option value="SP">SP</option>
                         <option value="RP">RP</option>
                     </select>
+                    <button
+                        className={`btn ${showWatchlistOnly ? 'btn-primary' : ''}`}
+                        onClick={() => setShowWatchlistOnly(!showWatchlistOnly)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: showWatchlistOnly ? 'var(--accent-primary)' : 'var(--bg-tertiary)', color: showWatchlistOnly ? '#000' : 'var(--text-primary)' }}
+                    >
+                        <Star size={16} fill={showWatchlistOnly ? '#000' : 'none'} />
+                        Watchlist
+                    </button>
                 </div>
             </div>
 
@@ -85,6 +120,7 @@ export function BigBoard() {
                     <table>
                         <thead>
                             <tr>
+                                <th style={{ width: '40px' }}></th>
                                 <th>ADP</th>
                                 <th>Player</th>
                                 <th>Team</th>
@@ -95,27 +131,38 @@ export function BigBoard() {
                         <tbody>
                             {filteredPlayers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} style={{ textAlign: 'center' }}>No players available matching criteria.</td>
+                                    <td colSpan={6} style={{ textAlign: 'center' }}>No players available matching criteria.</td>
                                 </tr>
                             ) : (
-                                filteredPlayers.map(p => (
-                                    <tr key={p.id}>
-                                        <td>{p.adp}</td>
-                                        <td style={{ fontWeight: 500 }}>{p.name}</td>
-                                        <td>{p.team}</td>
-                                        <td>{p.position}</td>
-                                        <td>
-                                            <button
-                                                className="btn btn-primary"
-                                                onClick={() => handleDraftPlayer(p)}
-                                                disabled={!currentPick || draftingId === p.id}
-                                                style={{ padding: '0.25rem 0.5rem', fontSize: '0.875rem' }}
-                                            >
-                                                {draftingId === p.id ? 'Drafting...' : 'Draft'}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
+                                filteredPlayers.map(p => {
+                                    const isWatched = !!watchlist.find(w => w.player_id === p.id);
+                                    return (
+                                        <tr key={p.id}>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <button
+                                                    onClick={() => toggleWatch(p.id)}
+                                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: isWatched ? 'var(--warning)' : 'var(--text-muted)' }}
+                                                >
+                                                    <Star size={18} fill={isWatched ? 'var(--warning)' : 'none'} />
+                                                </button>
+                                            </td>
+                                            <td>{p.adp}</td>
+                                            <td style={{ fontWeight: 500 }}>{p.name}</td>
+                                            <td>{p.team}</td>
+                                            <td>{p.position}</td>
+                                            <td>
+                                                <button
+                                                    className="btn btn-primary"
+                                                    onClick={() => handleDraftPlayer(p)}
+                                                    disabled={!currentPick || draftingId === p.id}
+                                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.875rem' }}
+                                                >
+                                                    {draftingId === p.id ? 'Drafting...' : 'Draft'}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    )
+                                })
                             )}
                         </tbody>
                     </table>

@@ -5,15 +5,18 @@ import { useBigBoardPlayers } from '../hooks/usePlayers';
 import Papa from 'papaparse';
 
 export function Commish() {
-    const { currentPick, draftLog, teams } = useDraftState();
-    const { players } = useBigBoardPlayers();
+    const activeDraftId = localStorage.getItem('active_draft_id');
+    const { currentPick, draftLog, teams } = useDraftState(activeDraftId);
+    const { players } = useBigBoardPlayers(activeDraftId);
 
     const [undoing, setUndoing] = useState(false);
+    const [forcePlayerSearch, setForcePlayerSearch] = useState('');
     const [forcePlayerId, setForcePlayerId] = useState('');
     const [forceTeamId, setForceTeamId] = useState('');
 
     const [csvFile, setCsvFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
+    const [uploadText, setUploadText] = useState('Upload & Parse CSV');
 
     const [tradeRound, setTradeRound] = useState<number>(1);
     const [tradePick, setTradePick] = useState<number>(1);
@@ -30,11 +33,7 @@ export function Commish() {
             const { error: logError } = await supabase.from('draft_log').delete().eq('id', lastPick.id);
             if (logError) throw logError;
 
-            // 2. Free player
-            const { error: playerError } = await supabase.from('players')
-                .update({ is_drafted: false, drafted_by_team_id: null })
-                .eq('id', lastPick.player_id);
-            if (playerError) throw playerError;
+            // Player is_drafted state is handled dynamically now, no need to update players table
 
             alert("Pick undone successfully.");
         } catch (err: any) {
@@ -49,6 +48,7 @@ export function Commish() {
         try {
             // 1. Log
             const { error: logError } = await supabase.from('draft_log').insert({
+                draft_id: activeDraftId,
                 round: currentPick.round,
                 pick_number: currentPick.pick_number,
                 team_id: forceTeamId,
@@ -56,14 +56,11 @@ export function Commish() {
             });
             if (logError) throw logError;
 
-            // 2. Draft
-            const { error: playerError } = await supabase.from('players')
-                .update({ is_drafted: true, drafted_by_team_id: forceTeamId })
-                .eq('id', forcePlayerId);
-            if (playerError) throw playerError;
+            // No need to update global players table
 
             alert("Force pick successful.");
             setForcePlayerId('');
+            setForcePlayerSearch('');
             setForceTeamId('');
         } catch (err: any) {
             alert("Error forcing pick: " + err.message);
@@ -72,18 +69,60 @@ export function Commish() {
 
     const handleUploadKeepers = async () => {
         if (!csvFile) return alert("Select a CSV file.");
+        if (!window.confirm("This will overwrite existing keepers. Ensure your Team Names in the CSV EXACTLY match the Team Names in the Database. Proceed?")) return;
+
         setUploading(true);
+        setUploadText("Parsing CSV...");
+
         Papa.parse(csvFile, {
             header: true,
             skipEmptyLines: true,
             complete: async (results) => {
                 try {
                     const rows = results.data as any[];
-                    alert(`Parsed ${rows.length} rows. (Implementation of actually inserting to DB skipped to avoid massive data logic, requires mapping Team Name to Team ID)`);
+                    // Expected CSV format: team_name, player_id
+
+                    setUploadText(`Processing ${rows.length} keepers...`);
+
+                    let successCount = 0;
+                    let errorCount = 0;
+
+                    for (const row of rows) {
+                        const teamName = row.team_name?.trim();
+                        const playerId = row.player_id?.toString().trim();
+
+                        if (!teamName || !playerId) continue;
+
+                        const team = teams.find(t => t.name.toLowerCase() === teamName.toLowerCase());
+                        if (!team) {
+                            console.warn(`Could not find team: ${teamName}`);
+                            errorCount++;
+                            continue;
+                        }
+
+                        // 1. Insert into keeper_lists (Upsert or ignore if exists)
+                        const { error: keeperError } = await supabase.from('keeper_lists').upsert({
+                            draft_id: activeDraftId,
+                            team_id: team.id,
+                            player_id: playerId
+                        }, { onConflict: 'draft_id, team_id, player_id' });
+
+                        if (keeperError) {
+                            console.error(keeperError);
+                            errorCount++;
+                            continue;
+                        }
+
+                        // No longer updating players table
+                        successCount++;
+                    }
+
+                    alert(`Keeper Upload Complete.\nSuccessfully added: ${successCount}\nErrors/Skipped: ${errorCount}`);
                 } catch (err: any) {
                     alert("Error: " + err.message);
                 } finally {
                     setUploading(false);
+                    setUploadText("Upload & Parse CSV");
                     setCsvFile(null);
                 }
             }
@@ -145,11 +184,24 @@ export function Commish() {
                             <option value="">Select Team...</option>
                             {teams?.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                         </select>
-                        <select value={forcePlayerId} onChange={e => setForcePlayerId(e.target.value)}>
-                            <option value="">Select Player...</option>
-                            {players?.filter(p => !p.is_drafted).map(p => <option key={p.id} value={p.id}>{p.name} ({p.position})</option>)}
-                        </select>
-                        <button className="btn btn-primary" style={{ backgroundColor: 'var(--warning)', color: '#000' }} onClick={handleForcePick} disabled={!currentPick}>
+                        <input
+                            type="text"
+                            placeholder="Search player to force pick..."
+                            value={forcePlayerSearch}
+                            onChange={e => {
+                                setForcePlayerSearch(e.target.value);
+                                setForcePlayerId(''); // Reset selection when searching
+                            }}
+                        />
+                        {forcePlayerSearch && (
+                            <select value={forcePlayerId} onChange={e => setForcePlayerId(e.target.value)} size={5} style={{ height: 'auto' }}>
+                                <option value="" disabled>Select Player...</option>
+                                {players?.filter(p => !p.is_drafted && p.name.toLowerCase().includes(forcePlayerSearch.toLowerCase())).slice(0, 10).map(p => (
+                                    <option key={p.id} value={p.id}>{p.name} ({p.position}) - ADP: {p.adp}</option>
+                                ))}
+                            </select>
+                        )}
+                        <button className="btn btn-primary" style={{ backgroundColor: 'var(--warning)', color: '#000' }} onClick={handleForcePick} disabled={!currentPick || !forcePlayerId}>
                             Execute Force Pick
                         </button>
                     </div>
@@ -185,11 +237,11 @@ export function Commish() {
 
                 <div className="card flex-col gap-4" style={{ flex: '1 1 300px' }}>
                     <h3>Upload Keepers</h3>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Upload a Yahoo CSV to populate players and keeper lists.</p>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Upload a CSV with headers `team_name` and `player_id` (Yahoo ID). This will assign the players to the team's keeper list and mark them as drafted.</p>
                     <div className="flex flex-col gap-2" style={{ marginTop: '1rem' }}>
                         <input type="file" accept=".csv" onChange={e => setCsvFile(e.target.files ? e.target.files[0] : null)} />
                         <button className="btn btn-primary" onClick={handleUploadKeepers} disabled={uploading}>
-                            {uploading ? 'Processing...' : 'Upload & Parse CSV'}
+                            {uploadText}
                         </button>
                     </div>
                 </div>

@@ -49,6 +49,15 @@ CREATE TABLE draft_order (
     UNIQUE(round, pick_number)
 );
 
+-- [NEW] 6. Watchlists Table
+CREATE TABLE watchlists (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES auth.users(id) NOT NULL,
+    player_id TEXT REFERENCES players(id) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, player_id)
+);
+
 -- Add updated_at trigger for players
 create extension if not exists moddatetime schema extensions;
 create trigger handle_updated_at before update on players 
@@ -62,14 +71,14 @@ ALTER TABLE players ENABLE ROW LEVEL SECURITY;
 ALTER TABLE draft_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE keeper_lists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE draft_order ENABLE ROW LEVEL SECURITY;
+ALTER TABLE watchlists ENABLE ROW LEVEL SECURITY; -- NEW
 
 -- 1. Teams
 -- Anyone can view teams
 CREATE POLICY "Anyone can view teams" ON teams FOR SELECT USING (true);
--- Commish can edit teams (Assuming Commish user_id is checked in app or has a specific claim, 
--- but we will allow anon for dev or use a commish_users table.
--- Let's make it so authenticated users can view, but only the owner or commish can insert/update.
--- For simplicity, let's assume all authenticated users can update their own team)
+-- End users can claim an unassigned team (where user_id is null)
+CREATE POLICY "Users can claim an unassigned team" ON teams FOR UPDATE USING (user_id IS NULL) WITH CHECK (auth.uid() = user_id);
+-- End users can edit their claimed team
 CREATE POLICY "Users can edit own team" ON teams FOR ALL USING (auth.uid() = user_id);
 
 -- 2. Players
@@ -97,7 +106,11 @@ CREATE POLICY "Authenticated users can manage keepers" ON keeper_lists FOR ALL U
 CREATE POLICY "Anyone can view draft_order" ON draft_order FOR SELECT USING (true);
 CREATE POLICY "Authenticated users can manage draft_order" ON draft_order FOR ALL USING (auth.role() = 'authenticated');
 
+-- 6. Watchlists
+CREATE POLICY "Users can manage own watchlist" ON watchlists FOR ALL USING (auth.uid() = user_id);
+
 -- Setup Supabase Realtime for necessary tables
 alter publication supabase_realtime add table players;
 alter publication supabase_realtime add table draft_log;
 alter publication supabase_realtime add table draft_order;
+alter publication supabase_realtime add table watchlists; -- NEW
