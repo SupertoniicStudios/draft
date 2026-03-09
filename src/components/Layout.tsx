@@ -3,14 +3,23 @@ import { supabase } from '../lib/supabase';
 import { LogOut, LayoutDashboard, Users, Settings } from 'lucide-react';
 import { useDraftState } from '../hooks/useDraftState';
 import { UpcomingPicks } from './UpcomingPicks';
-
+import { DraftProvider } from '../contexts/DraftContext';
 
 export function Layout() {
+    const activeDraftId = localStorage.getItem('active_draft_id');
+
+    return (
+        <DraftProvider draftId={activeDraftId}>
+            <LayoutInner activeDraftId={activeDraftId} />
+        </DraftProvider>
+    );
+}
+
+function LayoutInner({ activeDraftId }: { activeDraftId: string | null }) {
     const location = useLocation();
 
-    // Read the active draft ID
-    const activeDraftId = localStorage.getItem('active_draft_id');
-    const { currentPick, currentTeam } = useDraftState(activeDraftId);
+    // The context provides state for the active draft (or null if none)
+    const { currentPick, currentTeam } = useDraftState();
 
     const handleLogout = async () => {
         await supabase.auth.signOut();

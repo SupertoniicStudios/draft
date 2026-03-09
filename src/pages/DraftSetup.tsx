@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { ClaimTeam } from '../components/ClaimTeam';
 import { DraftOrderSetup } from '../components/DraftOrderSetup';
+import { DraftProvider } from '../contexts/DraftContext';
 
 // Temporary type until we update the hooks
 interface DraftLobby {
@@ -174,15 +175,17 @@ export function DraftSetup() {
 
                     <hr style={{ borderColor: 'var(--border-color)', margin: '2rem 0' }} />
 
-                    <ClaimTeam draftId={selectedDraftId} />
+                    <DraftProvider draftId={selectedDraftId}>
+                        <ClaimTeam draftId={selectedDraftId} />
 
-                    {d?.status === 'setup' && userId === d?.created_by && (
-                        <DraftOrderSetup
-                            draftId={selectedDraftId}
-                            onStartDraft={(order) => handleStartDraft(selectedDraftId, order)}
-                            starting={creating}
-                        />
-                    )}
+                        {d?.status === 'setup' && userId === d?.created_by && (
+                            <DraftOrderSetup
+                                draftId={selectedDraftId}
+                                onStartDraft={(order) => handleStartDraft(selectedDraftId, order)}
+                                starting={creating}
+                            />
+                        )}
+                    </DraftProvider>
                 </div>
             </div>
         );

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useDraftState } from '../hooks/useDraftState';
 import { useBigBoardPlayers } from '../hooks/usePlayers';
@@ -13,6 +13,12 @@ export function Commish() {
     const [forcePlayerSearch, setForcePlayerSearch] = useState('');
     const [forcePlayerId, setForcePlayerId] = useState('');
     const [forceTeamId, setForceTeamId] = useState('');
+
+    useEffect(() => {
+        if (currentPick) {
+            setForceTeamId(currentPick.current_team_id);
+        }
+    }, [currentPick]);
 
     const [csvFile, setCsvFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
