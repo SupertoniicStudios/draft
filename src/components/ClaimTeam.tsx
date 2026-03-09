@@ -23,6 +23,8 @@ export function ClaimTeam({ draftId }: { draftId: string }) {
             const { error } = await supabase.from('teams').update({ user_id: userId }).eq('id', teamId);
             if (error) throw error;
             // The Realtime hook in useDraftState will catch this and update
+            const teamInfo = unassignedTeams.find(t => t.id === teamId);
+            alert(`You have successfully claimed ${teamInfo?.name}!`);
         } catch (err: any) {
             alert("Error claiming team: " + err.message);
         } finally {

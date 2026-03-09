@@ -9,17 +9,28 @@ import { Star } from 'lucide-react';
 export function BigBoard() {
     const activeDraftId = localStorage.getItem('active_draft_id');
     const { players, loading } = useBigBoardPlayers(activeDraftId);
-    const { currentPick, currentTeam } = useDraftState(activeDraftId);
+    const { currentPick, currentTeam, fetchState } = useDraftState(activeDraftId);
     const [search, setSearch] = useState('');
     const [positionFilter, setPositionFilter] = useState('');
     const [draftingId, setDraftingId] = useState<string | null>(null);
     const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
 
     const [userId, setUserId] = useState<string | null>(null);
+    const [userTeamId, setUserTeamId] = useState<string | null>(null);
 
     useEffect(() => {
         supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id || null));
     }, []);
+
+    // Find the user's team in this draft
+    useEffect(() => {
+        if (!userId) return;
+        const fetchUserTeam = async () => {
+            const { data } = await supabase.from('teams').select('id').eq('draft_id', activeDraftId).eq('user_id', userId).single();
+            if (data) setUserTeamId(data.id);
+        }
+        fetchUserTeam();
+    }, [userId, activeDraftId]);
 
     const { watchlist, toggleWatch } = useWatchlist(userId);
 
@@ -58,6 +69,11 @@ export function BigBoard() {
             return;
         }
 
+        if (currentTeam.id !== userTeamId) {
+            alert("It is not your turn to draft!");
+            return;
+        }
+
         if (!window.confirm(`Draft ${player.name} to ${currentTeam.name}?`)) return;
 
         setDraftingId(player.id);
@@ -70,6 +86,7 @@ export function BigBoard() {
                 player_id: player.id
             });
             if (logError) throw logError;
+            await fetchState();
             // No longer updating the global `players` table with `is_drafted`
         } catch (err: any) {
             alert("Error drafting player: " + err.message);
@@ -154,8 +171,12 @@ export function BigBoard() {
                                                 <button
                                                     className="btn btn-primary"
                                                     onClick={() => handleDraftPlayer(p)}
-                                                    disabled={!currentPick || draftingId === p.id}
-                                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.875rem' }}
+                                                    disabled={!currentPick || draftingId === p.id || currentTeam?.id !== userTeamId}
+                                                    style={{
+                                                        padding: '0.25rem 0.5rem',
+                                                        fontSize: '0.875rem',
+                                                        opacity: (!currentPick || currentTeam?.id !== userTeamId) ? 0.5 : 1
+                                                    }}
                                                 >
                                                     {draftingId === p.id ? 'Drafting...' : 'Draft'}
                                                 </button>

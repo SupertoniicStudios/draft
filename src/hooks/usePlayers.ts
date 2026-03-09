@@ -17,10 +17,7 @@ export function useBigBoardPlayers(draftId?: string | null) {
     const [players, setPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const { draftLog } = useDraftState(draftId);
-
-    // Keepers logic: we also need to know if a player is kept in this draft
-    const [keepers, setKeepers] = useState<{ player_id: string, team_id: string }[]>([]);
+    const { draftLog, keepers } = useDraftState(draftId);
 
     useEffect(() => {
         fetchPlayers();
@@ -40,20 +37,6 @@ export function useBigBoardPlayers(draftId?: string | null) {
         };
     }, []);
 
-    useEffect(() => {
-        if (!draftId) return;
-        fetchKeepers();
-
-        const keeperSub = supabase
-            .channel(`keepers_channel_${draftId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'keeper_lists', filter: `draft_id=eq.${draftId}` }, () => {
-                fetchKeepers();
-            })
-            .subscribe();
-
-        return () => { supabase.removeChannel(keeperSub); };
-    }, [draftId]);
-
     async function fetchPlayers() {
         try {
             setLoading(true);
@@ -69,12 +52,6 @@ export function useBigBoardPlayers(draftId?: string | null) {
         } finally {
             setLoading(false);
         }
-    }
-
-    async function fetchKeepers() {
-        if (!draftId) return;
-        const { data } = await supabase.from('keeper_lists').select('player_id, team_id').eq('draft_id', draftId);
-        if (data) setKeepers(data);
     }
 
     // Compute the final player list with injected `is_drafted` state based on `draftLog` and `keepers`

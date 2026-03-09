@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
 import { ClaimTeam } from '../components/ClaimTeam';
+import { DraftOrderSetup } from '../components/DraftOrderSetup';
 
 // Temporary type until we update the hooks
 interface DraftLobby {
@@ -85,6 +86,44 @@ export function DraftSetup() {
         }
     };
 
+    const handleStartDraft = async (draftId: string, orderedTeamIds: string[]) => {
+        if (!window.confirm("Ready to start the draft? This will generate the exact order shown and lock the lobby.")) return;
+        setCreating(true);
+        try {
+            const draftPicks = [];
+            const ROUNDS = 14;
+            const TEAMS_COUNT = 10;
+
+            for (let round = 1; round <= ROUNDS; round++) {
+                for (let pick = 1; pick <= TEAMS_COUNT; pick++) {
+                    const teamIndex = pick - 1;
+                    draftPicks.push({
+                        draft_id: draftId,
+                        round: round,
+                        pick_number: pick,
+                        original_team_id: orderedTeamIds[teamIndex],
+                        current_team_id: orderedTeamIds[teamIndex]
+                    });
+                }
+            }
+
+            // 3. Insert Draft Order
+            const { error: orderError } = await supabase.from('draft_order').insert(draftPicks);
+            if (orderError) throw orderError;
+
+            // 4. Update Draft Status
+            const { error: updateError } = await supabase.from('drafts').update({ status: 'active' }).eq('id', draftId);
+            if (updateError) throw updateError;
+
+            alert("Draft Started!");
+        } catch (err: any) {
+            alert("Error starting draft: " + err.message);
+        } finally {
+            setCreating(false);
+            fetchDrafts(); // refresh lobby status immediately
+        }
+    }
+
     const handleEnterLobby = (draftId: string) => {
         setSelectedDraftId(draftId);
     };
@@ -103,6 +142,7 @@ export function DraftSetup() {
             if (localStorage.getItem('active_draft_id') === draftId) {
                 localStorage.removeItem('active_draft_id');
             }
+            fetchDrafts(); // Refresh the list
         } catch (err: any) {
             alert("Error deleting draft: " + err.message);
         }
@@ -120,17 +160,29 @@ export function DraftSetup() {
                 <div className="card" style={{ padding: '2rem' }}>
                     <div className="flex justify-between items-center" style={{ marginBottom: '2rem' }}>
                         <div>
-                            <h3 style={{ margin: 0 }}>Draft Room Status</h3>
-                            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Join this draft to enter the war room.</p>
+                            <h3 style={{ margin: 0 }}>Draft Room Status: <span style={{ textTransform: 'uppercase', color: d?.status === 'active' ? 'var(--accent-primary)' : 'var(--text-secondary)' }}>{d?.status}</span></h3>
+                            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                                {d?.status === 'setup' ? 'Claim a team and wait for Commissioner to start the draft.' : 'The draft is active! Enter the war room.'}
+                            </p>
                         </div>
-                        <button className="btn btn-primary" onClick={() => handleJoinDraft(selectedDraftId)} style={{ fontSize: '1.125rem', padding: '0.75rem 1.5rem' }}>
-                            Enter Draft Room
-                        </button>
+                        <div className="flex gap-2">
+                            <button className="btn btn-primary" onClick={() => handleJoinDraft(selectedDraftId)} style={{ fontSize: '1.125rem', padding: '0.75rem 1.5rem' }}>
+                                Enter Draft Room
+                            </button>
+                        </div>
                     </div>
 
                     <hr style={{ borderColor: 'var(--border-color)', margin: '2rem 0' }} />
 
                     <ClaimTeam draftId={selectedDraftId} />
+
+                    {d?.status === 'setup' && userId === d?.created_by && (
+                        <DraftOrderSetup
+                            draftId={selectedDraftId}
+                            onStartDraft={(order) => handleStartDraft(selectedDraftId, order)}
+                            starting={creating}
+                        />
+                    )}
                 </div>
             </div>
         );

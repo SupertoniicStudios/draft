@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { LogOut, LayoutDashboard, Users, Settings } from 'lucide-react';
 import { useDraftState } from '../hooks/useDraftState';
+import { UpcomingPicks } from './UpcomingPicks';
 
 
 export function Layout() {
@@ -13,6 +14,11 @@ export function Layout() {
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
+    };
+
+    const handleLeaveLobby = () => {
+        localStorage.removeItem('active_draft_id');
+        window.location.href = '/setup';
     };
 
     const navItems = [
@@ -52,19 +58,27 @@ export function Layout() {
 
                 <div className="flex items-center gap-4">
                     {activeDraftId ? (
-                        currentTeam ? (
-                            <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.5rem 1rem', borderRadius: '0.375rem', fontSize: '0.875rem' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>On the Clock: </span>
-                                <strong style={{ color: 'var(--accent-primary)' }}>{currentTeam.name}</strong>
-                                <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                    (Rd {currentPick?.round}, Pk {currentPick?.pick_number})
-                                </span>
-                            </div>
-                        ) : (
-                            <div style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                                Draft Not Active
-                            </div>
-                        )
+                        <>
+                            {currentTeam ? (
+                                <div className="flex flex-col gap-2">
+                                    <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.5rem 1rem', borderRadius: '0.375rem', fontSize: '0.875rem' }}>
+                                        <span style={{ color: 'var(--text-secondary)' }}>On the Clock: </span>
+                                        <strong style={{ color: 'var(--accent-primary)' }}>{currentTeam.name}</strong>
+                                        <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                            (Rd {currentPick?.round}, Pk {currentPick?.pick_number})
+                                        </span>
+                                    </div>
+                                    <UpcomingPicks draftId={activeDraftId} />
+                                </div>
+                            ) : (
+                                <div style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                                    Draft Not Active
+                                </div>
+                            )}
+                            <button onClick={handleLeaveLobby} className="btn" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', border: '1px solid var(--border-color)' }}>
+                                Leave Lobby
+                            </button>
+                        </>
                     ) : (
                         <div className="flex gap-2">
                             <Link to="/setup" className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>

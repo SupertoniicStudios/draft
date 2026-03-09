@@ -27,10 +27,17 @@ export interface DraftLogEntry {
     draft_id: string;
 }
 
+export interface KeeperEntry {
+    player_id: string;
+    team_id: string;
+    draft_id: string;
+}
+
 export function useDraftState(draftId?: string | null) {
     const [teams, setTeams] = useState<Team[]>([]);
     const [draftOrder, setDraftOrder] = useState<DraftPick[]>([]);
     const [draftLog, setDraftLog] = useState<DraftLogEntry[]>([]);
+    const [keepers, setKeepers] = useState<KeeperEntry[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -38,25 +45,38 @@ export function useDraftState(draftId?: string | null) {
             setTeams([]);
             setDraftOrder([]);
             setDraftLog([]);
+            setKeepers([]);
             setLoading(false);
             return;
         }
 
         fetchState();
 
-        const channel = supabase.channel(`draft_channel_${draftId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'draft_log', filter: `draft_id=eq.${draftId}` }, (payload) => {
-                if (payload.eventType === 'INSERT') {
-                    setDraftLog(prev => [...prev, payload.new as DraftLogEntry]);
-                } else if (payload.eventType === 'DELETE') {
-                    setDraftLog(prev => prev.filter(log => log.id !== payload.old.id));
+        const channelId = Math.random().toString(36).substring(7);
+        const channel = supabase.channel(`draft_channel_${draftId}_${channelId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'draft_log' }, (payload) => {
+                const log = (payload.eventType === 'DELETE' ? payload.old : payload.new) as any;
+                if (!log.draft_id || log.draft_id === draftId) {
+                    fetchDraftLog();
                 }
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'draft_order', filter: `draft_id=eq.${draftId}` }, () => {
-                fetchDraftOrder();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'draft_order' }, (payload) => {
+                const order = (payload.new || payload.old) as any;
+                if (!order.draft_id || order.draft_id === draftId) {
+                    fetchDraftOrder();
+                }
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'teams', filter: `draft_id=eq.${draftId}` }, () => {
-                fetchTeams(); // For claim team updates
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, (payload) => {
+                const team = (payload.new || payload.old) as any;
+                if (!team.draft_id || team.draft_id === draftId) {
+                    fetchTeams();
+                }
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'keeper_lists' }, (payload) => {
+                const keeper = (payload.new || payload.old) as any;
+                if (!keeper.draft_id || keeper.draft_id === draftId) {
+                    fetchKeepers();
+                }
             })
             .subscribe();
 
@@ -71,7 +91,8 @@ export function useDraftState(draftId?: string | null) {
         await Promise.all([
             fetchTeams(),
             fetchDraftOrder(),
-            fetchDraftLog()
+            fetchDraftLog(),
+            fetchKeepers()
         ]);
         setLoading(false);
     }
@@ -94,6 +115,12 @@ export function useDraftState(draftId?: string | null) {
         if (data) setDraftLog(data);
     }
 
+    async function fetchKeepers() {
+        if (!draftId) return;
+        const { data } = await supabase.from('keeper_lists').select('*').eq('draft_id', draftId);
+        if (data) setKeepers(data);
+    }
+
     const currentPick = useMemo(() => {
         if (draftOrder.length === 0) return null;
         const nextPickIndex = draftLog.length;
@@ -106,5 +133,5 @@ export function useDraftState(draftId?: string | null) {
         return teams.find(t => t.id === currentPick.current_team_id) || null;
     }, [currentPick, teams]);
 
-    return { teams, draftOrder, draftLog, currentPick, currentTeam, loading };
+    return { teams, draftOrder, draftLog, keepers, currentPick, currentTeam, loading, fetchState };
 }

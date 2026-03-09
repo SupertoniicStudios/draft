@@ -6,7 +6,7 @@ import Papa from 'papaparse';
 
 export function Commish() {
     const activeDraftId = localStorage.getItem('active_draft_id');
-    const { currentPick, draftLog, teams } = useDraftState(activeDraftId);
+    const { currentPick, draftLog, teams, fetchState } = useDraftState(activeDraftId);
     const { players } = useBigBoardPlayers(activeDraftId);
 
     const [undoing, setUndoing] = useState(false);
@@ -32,6 +32,7 @@ export function Commish() {
             // 1. Delete draft log
             const { error: logError } = await supabase.from('draft_log').delete().eq('id', lastPick.id);
             if (logError) throw logError;
+            await fetchState();
 
             // Player is_drafted state is handled dynamically now, no need to update players table
 
@@ -55,6 +56,7 @@ export function Commish() {
                 player_id: forcePlayerId
             });
             if (logError) throw logError;
+            await fetchState();
 
             // No need to update global players table
 
@@ -196,7 +198,13 @@ export function Commish() {
                         {forcePlayerSearch && (
                             <select value={forcePlayerId} onChange={e => setForcePlayerId(e.target.value)} size={5} style={{ height: 'auto' }}>
                                 <option value="" disabled>Select Player...</option>
-                                {players?.filter(p => !p.is_drafted && p.name.toLowerCase().includes(forcePlayerSearch.toLowerCase())).slice(0, 10).map(p => (
+                                {players?.filter(p => {
+                                    if (p.is_drafted) return false;
+                                    const removeDiacritics = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                                    const searchNormalized = removeDiacritics(forcePlayerSearch.toLowerCase());
+                                    const nameNormalized = removeDiacritics(p.name.toLowerCase());
+                                    return nameNormalized.includes(searchNormalized);
+                                }).slice(0, 10).map(p => (
                                     <option key={p.id} value={p.id}>{p.name} ({p.position}) - ADP: {p.adp}</option>
                                 ))}
                             </select>
