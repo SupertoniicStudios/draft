@@ -83,6 +83,15 @@ export function Rosters() {
         setLoading(false);
     }
 
+    if (!activeDraftId) {
+        return (
+            <div className="flex flex-col gap-6 w-full h-full items-center justify-center pt-20">
+                <h2 style={{ color: 'var(--text-muted)' }}>No Active Draft</h2>
+                <p style={{ color: 'var(--text-secondary)' }}>You must join a draft lobby to view team rosters.</p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col gap-6 w-full h-full">
             <h2>Team Rosters</h2>

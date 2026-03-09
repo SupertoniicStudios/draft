@@ -205,6 +205,15 @@ export function Commish() {
         document.body.removeChild(link);
     };
 
+    if (!activeDraftId) {
+        return (
+            <div className="flex flex-col gap-6 w-full h-full items-center justify-center pt-20">
+                <h2 style={{ color: 'var(--text-muted)' }}>Commissioner Controls Locked</h2>
+                <p style={{ color: 'var(--text-secondary)' }}>You must join a draft lobby to access commissioner controls.</p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col gap-6 w-full h-full">
             <h2>Commissioner Dashboard</h2>

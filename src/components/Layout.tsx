@@ -53,9 +53,7 @@ function LayoutInner({ activeDraftId }: { activeDraftId: string | null }) {
                                     textDecoration: 'none',
                                     padding: '0.5rem',
                                     borderRadius: '0.375rem',
-                                    backgroundColor: location.pathname === item.path ? 'var(--bg-tertiary)' : 'transparent',
-                                    opacity: !activeDraftId ? 0.5 : 1,
-                                    pointerEvents: !activeDraftId ? 'none' : 'auto'
+                                    backgroundColor: location.pathname === item.path ? 'var(--bg-tertiary)' : 'transparent'
                                 }}
                             >
                                 {item.icon}
