@@ -157,3 +157,22 @@ td {
 tbody tr:hover {
   background-color: var(--bg-tertiary);
 }
+
+/* Custom Scrollbars */
+.layout-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.layout-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.layout-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+.layout-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

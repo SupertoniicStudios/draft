@@ -63,7 +63,7 @@ export function DraftDashboard() {
             if (p.is_drafted) return false;
             if (search && !removeDiacritics(p.name.toLowerCase()).includes(searchNormalized)) return false;
             if (positionFilter) {
-                const playerPositions = p.position.split(/[\s,\/]+/).filter(Boolean);
+                const playerPositions = p.position.split(/[\s,/]+/).filter(Boolean);
                 let matchesPos = false;
                 if (positionFilter === 'IF') {
                     matchesPos = playerPositions.some(pos => ['1B', '2B', '3B', 'SS'].includes(pos));
@@ -109,8 +109,12 @@ export function DraftDashboard() {
             if (logError) throw logError;
             await fetchState();
             toast.success(`Drafted ${player.name} to ${currentTeam.name}!`);
-        } catch (err: any) {
-            toast.error("Error drafting player: " + err.message);
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                toast.error("Error drafting player: " + err.message);
+            } else {
+                toast.error("An unknown error occurred.");
+            }
         } finally {
             setDraftingId(null);
         }
@@ -132,26 +136,26 @@ export function DraftDashboard() {
         <div className="flex flex-col h-[calc(100vh-80px)] w-full gap-4 max-w-7xl mx-auto p-4">
             
             {/* Top Section: Status */}
-            <div className="flex gap-4 items-center bg-[var(--bg-secondary)] p-4 rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto whitespace-nowrap">
+            <div className="flex gap-4 items-center bg-[var(--bg-secondary)] p-5 rounded-xl border border-[var(--border-color)] overflow-x-auto whitespace-nowrap shadow-md">
                 <div className="flex-1 min-w-[200px]">
-                    <h3 className="text-sm uppercase font-semibold text-[var(--text-muted)] tracking-wider">On the Clock</h3>
-                    <div className="text-2xl font-bold text-[var(--accent-primary)]">
+                    <h3 className="text-xs uppercase font-bold text-[var(--accent-primary)] tracking-widest mb-1">On the Clock</h3>
+                    <div className="text-3xl font-extrabold text-[var(--text-primary)] tracking-tight">
                         {currentTeam ? currentTeam.name : "Draft Complete"}
                     </div>
                 </div>
                 {lastPick && (
-                    <div className="flex-1 min-w-[200px] border-l border-[var(--border-color)] pl-4">
-                        <h3 className="text-sm uppercase font-semibold text-[var(--text-muted)] tracking-wider">Last Pick</h3>
-                        <div className="text-lg font-medium text-[var(--text-primary)]">
-                            {lastPlayer?.name || "Unknown"} <span className="text-[var(--text-muted)] text-sm">({lastTeam?.name})</span>
+                    <div className="flex-1 min-w-[200px] border-l border-[var(--border-color)] pl-5">
+                        <h3 className="text-xs uppercase font-bold text-[var(--text-muted)] tracking-widest mb-1">Last Pick</h3>
+                        <div className="text-xl font-semibold text-[var(--text-primary)] tracking-tight">
+                            {lastPlayer?.name || "Unknown"} <span className="text-[var(--text-muted)] text-base font-normal ml-1">({lastTeam?.name})</span>
                         </div>
                     </div>
                 )}
                 {/* On Deck Section */}
                 {draftOrder && draftOrder.length > draftLog.length && (
-                    <div className="flex-1 min-w-[200px] border-l border-[var(--border-color)] pl-4">
-                        <h3 className="text-sm uppercase font-semibold text-[var(--text-muted)] tracking-wider">On Deck</h3>
-                        <div className="text-lg font-medium text-[var(--text-primary)] opacity-80">
+                    <div className="flex-1 min-w-[200px] border-l border-[var(--border-color)] pl-5">
+                        <h3 className="text-xs uppercase font-bold text-[var(--text-muted)] tracking-widest mb-1">On Deck</h3>
+                        <div className="text-xl font-medium text-[var(--text-secondary)] tracking-tight">
                             {teams.find(t => t.id === draftOrder[draftLog.length].current_team_id)?.name || "Unknown"}
                         </div>
                     </div>
@@ -162,24 +166,30 @@ export function DraftDashboard() {
             <div className="flex flex-1 gap-4 min-h-0">
                 
                 {/* Left Column: Activity Log */}
-                <div className="flex flex-col flex-[1] bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] overflow-hidden min-h-0 min-w-[250px]">
-                    <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)] font-semibold shrink-0">
+                <div className="flex flex-col flex-[1] bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] overflow-hidden min-h-0 min-w-[250px] shadow-sm">
+                    <div className="px-5 py-4 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)] font-bold text-sm tracking-wider uppercase text-[var(--text-secondary)] shrink-0">
                         Pick Activity
                     </div>
-                    <div className="flex-1 overflow-y-auto p-2 layout-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-3 layout-scrollbar">
                         {reversedLog.length === 0 ? (
-                            <div className="text-center p-4 text-[var(--text-muted)] text-sm">No picks made yet.</div>
+                            <div className="text-center p-6 text-[var(--text-muted)] text-sm italic">No picks made yet.</div>
                         ) : (
                             reversedLog.map((log) => {
                                 const p = players.find(player => player.id === log.player_id);
                                 const t = teams.find(team => team.id === log.team_id);
                                 return (
-                                    <div key={log.id} className="p-2 mb-2 rounded bg-[var(--bg-primary)] border border-[var(--border-color)] shadow-sm animate-fade-in text-sm flex justify-between items-center">
-                                        <div>
-                                            <span className="font-semibold text-[var(--accent-primary)] mr-2">{log.round}.{log.pick_number}</span>
-                                            <span className="font-medium text-[var(--text-primary)]">{p?.name || 'Unknown Player'}</span>
+                                    <div key={log.id} className="p-3 mb-3 rounded-lg bg-[var(--bg-primary)] border border-transparent hover:border-[var(--border-color)] transition-colors animate-fade-in flex flex-col gap-1">
+                                        <div className="flex justify-between items-start">
+                                            <span className="font-bold text-[var(--text-primary)] text-base leading-tight">
+                                                {p?.name || 'Unknown Player'}
+                                            </span>
+                                            <span className="bg-[var(--bg-tertiary)] text-[var(--accent-primary)] text-xs font-bold px-2 py-1 rounded">
+                                                {log.round}.{log.pick_number}
+                                            </span>
                                         </div>
-                                        <span className="text-[var(--text-muted)] text-xs">{t?.name}</span>
+                                        <div className="text-[var(--text-muted)] text-xs font-medium uppercase tracking-wide">
+                                            {t?.name} <span className="mx-1">•</span> {p?.position}
+                                        </div>
                                     </div>
                                 )
                             })
@@ -188,17 +198,17 @@ export function DraftDashboard() {
                 </div>
 
                 {/* Middle Column: Compact Big Board */}
-                <div className="flex flex-col flex-[2] bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] overflow-hidden min-h-0 min-w-[350px]">
-                    <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)] flex gap-3 items-center shrink-0">
+                <div className="flex flex-col flex-[2] bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] overflow-hidden min-h-0 min-w-[350px] shadow-sm">
+                    <div className="px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)] flex gap-3 items-center shrink-0">
                         <input
                             type="text"
                             placeholder="Player Search..."
-                            className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md px-3 py-1.5 text-sm flex-1"
+                            className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md px-3 py-2 text-sm flex-1 focus:ring-1 focus:ring-[var(--accent-primary)]"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                         />
                         <select 
-                            className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md px-2 py-1.5 text-sm"
+                            className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md px-3 py-2 text-sm cursor-pointer hover:border-[var(--text-muted)] transition-colors"
                             value={positionFilter} 
                             onChange={e => setPositionFilter(e.target.value)}
                         >
@@ -215,7 +225,7 @@ export function DraftDashboard() {
                             <option value="RP">RP</option>
                         </select>
                         <button
-                            className={`p-1.5 rounded-md transition-colors ${showWatchlistOnly ? 'bg-[var(--accent-primary)] text-black' : 'bg-[var(--bg-primary)] text-[var(--text-muted)]'}`}
+                            className={`p-2 rounded-md transition-colors ${showWatchlistOnly ? 'bg-[var(--accent-primary)] text-white shadow-sm' : 'bg-[var(--bg-primary)] text-[var(--text-muted)] border border-[var(--border-color)] hover:text-white'}`}
                             onClick={() => setShowWatchlistOnly(!showWatchlistOnly)}
                             title="Toggle Watchlist"
                         >
@@ -228,13 +238,13 @@ export function DraftDashboard() {
                             <div className="text-center p-8 text-[var(--text-muted)] text-sm">Loading players...</div>
                         ) : (
                             <table className="w-full text-left border-collapse m-0">
-                                <thead className="sticky top-0 bg-[var(--bg-tertiary)] z-10 text-xs text-[var(--text-muted)] uppercase tracking-wider">
+                                <thead className="sticky top-0 bg-[var(--bg-tertiary)] z-10 text-xs text-[var(--text-muted)] uppercase tracking-widest shadow-sm">
                                     <tr>
-                                        <th className="font-semibold p-2 w-[30px] text-center border-b border-[var(--border-color)]"></th>
-                                        <th className="font-semibold p-2 border-b border-[var(--border-color)]">ADP</th>
-                                        <th className="font-semibold p-2 border-b border-[var(--border-color)]">Player</th>
-                                        <th className="font-semibold p-2 border-b border-[var(--border-color)]">Pos</th>
-                                        <th className="font-semibold p-2 text-right border-b border-[var(--border-color)]">Action</th>
+                                        <th className="font-bold py-3 px-4 w-[40px] text-center border-b border-[var(--border-color)]"></th>
+                                        <th className="font-bold py-3 px-4 border-b border-[var(--border-color)]">ADP</th>
+                                        <th className="font-bold py-3 px-4 border-b border-[var(--border-color)]">Player</th>
+                                        <th className="font-bold py-3 px-4 border-b border-[var(--border-color)]">Pos</th>
+                                        <th className="font-bold py-3 px-4 text-right border-b border-[var(--border-color)]">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -246,23 +256,23 @@ export function DraftDashboard() {
                                         filteredPlayers.map(p => {
                                             const isWatched = !!watchlist.find(w => w.player_id === p.id);
                                             return (
-                                                <tr key={p.id} className="border-b border-[var(--border-color)] hover:bg-[var(--bg-tertiary)] transition-colors">
-                                                    <td className="p-2 text-center">
+                                                <tr key={p.id} className="border-b border-[var(--border-color)] hover:bg-[var(--bg-tertiary)] transition-colors group">
+                                                    <td className="py-3 px-4 text-center">
                                                         <button
                                                             onClick={() => toggleWatch(p.id)}
-                                                            className={`bg-transparent border-none p-0 cursor-pointer ${isWatched ? 'text-[var(--warning)]' : 'text-[var(--text-muted)] hover:text-white'}`}
+                                                            className={`bg-transparent border-none p-1 rounded hover:bg-[var(--bg-primary)] cursor-pointer transition-colors ${isWatched ? 'text-[var(--warning)]' : 'text-[var(--text-muted)] hover:text-white'}`}
                                                         >
-                                                            <Star size={16} fill={isWatched ? 'currentColor' : 'none'} />
+                                                            <Star size={18} fill={isWatched ? 'currentColor' : 'none'} />
                                                         </button>
                                                     </td>
-                                                    <td className="p-2 text-sm text-[var(--text-muted)]">{p.adp}</td>
-                                                    <td className="p-2 text-sm font-medium text-[var(--text-primary)]">
-                                                        {p.name} <span className="text-[var(--text-muted)] font-normal text-xs ml-1">{p.team}</span>
+                                                    <td className="py-3 px-4 text-sm font-medium text-[var(--text-muted)]">{p.adp}</td>
+                                                    <td className="py-3 px-4 text-base font-bold text-[var(--text-primary)]">
+                                                        {p.name} <span className="text-[var(--text-muted)] font-medium text-xs ml-2 uppercase tracking-wide">{p.team}</span>
                                                     </td>
-                                                    <td className="p-2 text-sm text-[var(--text-muted)]">{p.position}</td>
-                                                    <td className="p-2 text-right">
+                                                    <td className="py-3 px-4 text-sm font-medium text-[var(--text-secondary)]">{p.position}</td>
+                                                    <td className="py-3 px-4 text-right">
                                                         <button
-                                                            className="bg-[var(--accent-primary)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-black text-xs font-semibold px-3 py-1.5 rounded transition-opacity"
+                                                            className="bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] disabled:bg-[var(--bg-tertiary)] disabled:text-[var(--text-muted)] disabled:cursor-not-allowed text-white text-sm font-bold px-4 py-2 rounded-md transition-all shadow-sm"
                                                             onClick={() => handleDraftPlayer(p)}
                                                             disabled={!currentPick || draftingId === p.id || currentTeam?.id !== userTeamId}
                                                         >
@@ -280,24 +290,23 @@ export function DraftDashboard() {
                 </div>
 
                 {/* Right Column: Chat Window */}
-                <div className="flex flex-col flex-[1] bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] overflow-hidden min-h-0 min-w-[250px]">
-                    <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)] font-semibold flex justify-between items-center shrink-0">
+                <div className="flex flex-col flex-[1] bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] overflow-hidden min-h-0 min-w-[250px] shadow-sm">
+                    <div className="px-5 py-4 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)] font-bold text-sm tracking-wider uppercase text-[var(--text-secondary)] shrink-0 flex justify-between items-center">
                         <span>Draft Chat</span>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 layout-scrollbar flex flex-col gap-3">
+                    <div className="flex-1 overflow-y-auto p-4 layout-scrollbar flex flex-col gap-4">
                         {messages.length === 0 ? (
-                            <div className="text-center p-4 text-[var(--text-muted)] text-sm my-auto">Say hello to the draft room!</div>
+                            <div className="text-center p-6 text-[var(--text-muted)] text-sm italic my-auto">Say hello to the draft room!</div>
                         ) : (
                             messages.map(msg => {
                                 const isMe = msg.user_id === userId;
-                                // Normally we might join auth.users or teams to get their name, but since we don't have that in chat_messages directly, Let's lookup team owner name.
                                 const senderTeam = teams.find(t => t.user_id === msg.user_id);
                                 const senderName = senderTeam ? senderTeam.owner_name : 'Spectator';
 
                                 return (
                                     <div key={msg.id} className={`flex flex-col max-w-[85%] ${isMe ? 'self-end items-end' : 'self-start items-start'}`}>
-                                        <span className="text-xs text-[var(--text-muted)] mb-1 px-1">{isMe ? 'You' : senderName}</span>
-                                        <div className={`px-3 py-2 rounded-2xl text-sm break-words ${isMe ? 'bg-[var(--accent-primary)] text-black rounded-tr-sm' : 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded-tl-sm'}`}>
+                                        <span className="text-[10px] uppercase tracking-wider font-bold text-[var(--text-muted)] mb-1 px-1">{isMe ? 'You' : senderName}</span>
+                                        <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words shadow-sm ${isMe ? 'bg-[var(--accent-primary)] text-white rounded-tr-sm' : 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded-tl-sm border border-[var(--border-color)]'}`}>
                                             {msg.message}
                                         </div>
                                     </div>
@@ -306,10 +315,10 @@ export function DraftDashboard() {
                         )}
                         <div ref={chatEndRef} />
                     </div>
-                    <form onSubmit={handleSendChat} className="p-3 bg-[var(--bg-tertiary)] border-t border-[var(--border-color)] flex gap-2 shrink-0">
+                    <form onSubmit={handleSendChat} className="p-4 bg-[var(--bg-tertiary)] border-t border-[var(--border-color)] flex gap-2 shrink-0">
                         <input
                             type="text"
-                            className="flex-1 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] min-w-0"
+                            className="flex-1 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] min-w-0"
                             placeholder="Type a message..."
                             value={chatInput}
                             onChange={e => setChatInput(e.target.value)}
@@ -317,7 +326,7 @@ export function DraftDashboard() {
                         <button
                             type="submit"
                             disabled={!chatInput.trim()}
-                            className="bg-[var(--accent-primary)] text-black p-2 rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity whitespace-nowrap"
+                            className="bg-[var(--accent-primary)] text-white p-2.5 rounded-lg hover:bg-[var(--accent-hover)] disabled:bg-[var(--bg-primary)] disabled:text-[var(--text-muted)] disabled:border disabled:border-[var(--border-color)] transition-all whitespace-nowrap shadow-sm"
                         >
                             <Send size={18} />
                         </button>
