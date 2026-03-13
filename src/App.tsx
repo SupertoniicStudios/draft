@@ -9,6 +9,7 @@ import { Rosters } from './pages/Rosters';
 import { Commish } from './pages/Commish';
 import { DraftSetup } from './pages/DraftSetup';
 import { Profile } from './pages/Profile';
+import { DraftDashboard } from './pages/DraftDashboard';
 
 function App() {
   const [session, setSession] = useState<any>(null);
@@ -48,6 +49,7 @@ function App() {
             <Route path="commish" element={<Commish />} />
             <Route path="setup" element={<DraftSetup />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="dashboard" element={<DraftDashboard />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

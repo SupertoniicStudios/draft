@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { LogOut, LayoutDashboard, Users, Settings, UserCircle } from 'lucide-react';
+import { LogOut, LayoutDashboard, Users, Settings, UserCircle, Activity } from 'lucide-react';
 import { useDraftState } from '../hooks/useDraftState';
 import { UpcomingPicks } from './UpcomingPicks';
 import { DraftProvider } from '../contexts/DraftContext';
@@ -31,6 +31,7 @@ function LayoutInner({ activeDraftId }: { activeDraftId: string | null }) {
     };
 
     const navItems = [
+        { name: 'Dashboard', path: '/dashboard', icon: <Activity size={18} /> },
         { name: 'Big Board', path: '/', icon: <LayoutDashboard size={18} /> },
         { name: 'Rosters', path: '/rosters', icon: <Users size={18} /> },
         { name: 'Commissioner', path: '/commish', icon: <Settings size={18} /> },
