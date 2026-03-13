@@ -137,7 +137,7 @@ export function Commish() {
                             draft_id: activeDraftId,
                             team_id: team.id,
                             player_id: playerId
-                        }, { onConflict: 'draft_id, team_id, player_id' });
+                        }, { onConflict: 'team_id, player_id' });
 
                         if (keeperError) {
                             console.error(keeperError);
