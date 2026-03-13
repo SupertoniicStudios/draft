@@ -34,9 +34,10 @@ CREATE TABLE draft_log (
 -- 4. Keeper Lists Table
 CREATE TABLE keeper_lists (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    draft_id UUID REFERENCES drafts(id) ON DELETE CASCADE NOT NULL,
     team_id UUID REFERENCES teams(id) NOT NULL,
     player_id TEXT REFERENCES players(id) NOT NULL,
-    UNIQUE(team_id, player_id)
+    UNIQUE(draft_id, team_id, player_id)
 );
 
 -- 5. Draft Order Table (for fixed but editable drafts & traded picks)

@@ -137,7 +137,7 @@ export function Commish() {
                             draft_id: activeDraftId,
                             team_id: team.id,
                             player_id: playerId
-                        }, { onConflict: 'team_id, player_id' });
+                        }, { onConflict: 'draft_id, team_id, player_id' });
 
                         if (keeperError) {
                             console.error(keeperError);
@@ -159,6 +159,137 @@ export function Commish() {
                 }
             }
         });
+    };
+
+    const handlePreloadPFKKeepers = async () => {
+        const rawCsvData = `team_name,player_id
+Mutilation Engineers,11268
+HollidayInnExpress,8780
+The Schoolyard,11384
+The Roman Legion,10480
+Acuna Matata,12393
+Billy's Beaners,12521
+Baby Bombers,9590
+Black Whales in the Sunset,1000001
+Giant BALLS,8658
+Raw Doggin' Randos,62972
+Mutilation Engineers,10766
+HollidayInnExpress,10438
+The Schoolyard,62973
+The Roman Legion,11731
+Acuna Matata,10646
+Billy's Beaners,11763
+Baby Bombers,10056
+Black Whales in the Sunset,9552
+Giant BALLS,10237
+Raw Doggin' Randos,11771
+Mutilation Engineers,10366
+HollidayInnExpress,64803
+The Schoolyard,11370
+The Roman Legion,60108
+Acuna Matata,10621
+Billy's Beaners,10639
+Baby Bombers,10626
+Black Whales in the Sunset,9111
+Giant BALLS,9116
+Raw Doggin' Randos,10918
+Mutilation Engineers,11104
+HollidayInnExpress,62935
+The Schoolyard,12056
+The Roman Legion,10572
+Acuna Matata,12157
+Billy's Beaners,12046
+Baby Bombers,9877
+Black Whales in the Sunset,62976
+Giant BALLS,9507
+Raw Doggin' Randos,10036
+Mutilation Engineers,10504
+HollidayInnExpress,11847
+The Schoolyard,10839
+The Roman Legion,64312
+Acuna Matata,64313
+Billy's Beaners,60419
+Baby Bombers,11805
+Black Whales in the Sunset,62119
+Giant BALLS,11722
+Raw Doggin' Randos,8875
+Mutilation Engineers,11343
+HollidayInnExpress,12776
+The Schoolyard,11732
+The Roman Legion,60214
+Acuna Matata,12363
+Billy's Beaners,11822
+Baby Bombers,9616
+Black Whales in the Sunset,12005
+Giant BALLS,10883
+Raw Doggin' Randos,12480
+Mutilation Engineers,63423
+HollidayInnExpress,10765
+The Schoolyard,12449
+The Roman Legion,9121
+Acuna Matata,9605
+Billy's Beaners,12336
+Baby Bombers,11014
+Black Whales in the Sunset,9320
+Giant BALLS,11760
+Raw Doggin' Randos,11117
+Mutilation Engineers,11661
+HollidayInnExpress,11733
+The Schoolyard,11381
+The Roman Legion,12141
+Acuna Matata,9584
+Billy's Beaners,11706
+Baby Bombers,10862
+Black Whales in the Sunset,8996
+Giant BALLS,11417
+Raw Doggin' Randos,10420
+Mutilation Engineers,10627
+HollidayInnExpress,60090
+The Schoolyard,60584
+The Roman Legion,10683
+Acuna Matata,11235
+Billy's Beaners,10610
+Baby Bombers,12468
+Black Whales in the Sunset,9701
+Giant BALLS,10235
+Raw Doggin' Randos,9334
+Mutilation Engineers,9007
+HollidayInnExpress,9861
+The Schoolyard,12540
+The Roman Legion,10730
+Acuna Matata,11826
+Billy's Beaners,10214
+Baby Bombers,10867
+Black Whales in the Sunset,64316
+Giant BALLS,12516
+Raw Doggin' Randos,12522
+Mutilation Engineers,10909
+HollidayInnExpress,11531
+The Schoolyard,12281
+The Roman Legion,64985
+Acuna Matata,63128
+Billy's Beaners,10917
+Baby Bombers,64978
+Black Whales in the Sunset,11138
+Giant BALLS,10148
+Raw Doggin' Randos,10577
+Mutilation Engineers,11526
+HollidayInnExpress,9724
+The Schoolyard,12505
+The Roman Legion,60092
+Acuna Matata,60254
+Billy's Beaners,64394
+Baby Bombers,12746
+Black Whales in the Sunset,9620
+Giant BALLS,9823
+Raw Doggin' Randos,11365`;
+
+        // Create a fake File object from the string so we can reuse the same upload logic seamlessly
+        const blob = new Blob([rawCsvData], { type: 'text/csv' });
+        const dummyFile = new File([blob], "pfk_keepers_2025.csv", { type: "text/csv" });
+        
+        setCsvFile(dummyFile);
+        setShowUploadConfirm(true); 
     };
 
     const handleTradePick = async () => {
@@ -292,6 +423,10 @@ export function Commish() {
                         <input type="file" accept=".csv" onChange={e => setCsvFile(e.target.files ? e.target.files[0] : null)} />
                         <button className="btn btn-primary" onClick={checkUploadKeepers} disabled={uploading}>
                             {uploadText}
+                        </button>
+                        <div style={{ textAlign: 'center', margin: '0.5rem 0', color: 'var(--text-muted)' }}>— OR —</div>
+                        <button className="btn btn-secondary w-full" onClick={handlePreloadPFKKeepers} disabled={uploading} style={{ backgroundColor: 'var(--accent-primary)', color: 'white' }}>
+                            Use PFK 2025 Keepers
                         </button>
                     </div>
                 </div>
