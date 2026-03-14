@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useDraftState } from '../hooks/useDraftState';
 import { useBigBoardPlayers } from '../hooks/usePlayers';
+import { Download } from 'lucide-react';
 
 export function DraftGrid() {
     const { draftOrder, draftLog, teams, currentPick, loading } = useDraftState();
@@ -85,6 +86,11 @@ export function DraftGrid() {
                     overflow-x: auto;
                     padding-bottom: 2rem;
                 }
+                @media (max-width: 768px) {
+                    .grid-container {
+                        min-width: 1200px;
+                    }
+                }
                 .grid-header {
                     background-color: var(--bg-tertiary);
                     padding: 0.5rem;
@@ -104,7 +110,8 @@ export function DraftGrid() {
                     border-radius: 0.25rem;
                     position: sticky;
                     left: 0;
-                    z-index: 5;
+                    z-index: 10;
+                    box-shadow: 2px 0 4px rgba(0,0,0,0.1);
                 }
                 .grid-tile {
                     border: 1px solid var(--border-color);
@@ -151,10 +158,14 @@ export function DraftGrid() {
                 }
             `}</style>
 
-            <div className="flex justify-between items-center">
-                <h2>The War Room</h2>
-                <button onClick={handleExport} className="btn btn-primary">
-                    Download Final Board
+            <div className="flex justify-between items-center mb-2 md:mb-0">
+                <h2 className="m-0">The War Room</h2>
+                <button 
+                    onClick={handleExport} 
+                    className="btn btn-primary max-md:fixed max-md:bottom-6 max-md:right-6 max-md:rounded-full max-md:shadow-xl max-md:z-50 max-md:p-4 max-md:flex max-md:items-center max-md:gap-2"
+                >
+                    <Download className="md:hidden" size={20} />
+                    <span className="max-md:hidden">Download Final Board</span>
                 </button>
             </div>
 

@@ -7,8 +7,6 @@ import { supabase } from '../lib/supabase';
 import { Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ConfirmModal } from '../components/ConfirmModal';
-
-import { DraftQueue } from '../components/DraftQueue';
 import { useUserQueue } from '../hooks/useUserQueue';
 
 export function BigBoard() {
@@ -114,9 +112,9 @@ export function BigBoard() {
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'row', width: '100%', height: 'calc(100vh - 64px)' }}>
-            <div className="flex flex-col gap-6 w-full h-full" style={{ flex: 1, paddingRight: '1rem', overflowY: 'auto' }}>
-                <div className="flex justify-between items-center">
+        <div className="flex flex-col w-full h-[calc(100vh-64px)] pb-16 md:pb-0 overflow-hidden">
+            <div className="flex flex-col gap-6 w-full h-full overflow-y-auto px-4 md:px-0">
+                <div className="flex justify-between items-center gap-4">
                 <h2>Big Board</h2>
                 <div className="flex gap-4">
                     <input
@@ -233,8 +231,6 @@ export function BigBoard() {
                 onCancel={() => setPlayerToDraft(null)}
             />
             </div>
-            
-            {userTeamId && <DraftQueue draftId={activeDraftId} userId={userId} allPlayers={players} />}
         </div>
     );
 }
