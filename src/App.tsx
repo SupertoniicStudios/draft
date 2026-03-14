@@ -10,6 +10,7 @@ import { Commish } from './pages/Commish';
 import { DraftSetup } from './pages/DraftSetup';
 import { Profile } from './pages/Profile';
 import { DraftDashboard } from './pages/DraftDashboard';
+import { DraftGrid } from './pages/DraftGrid';
 
 function App() {
   const [session, setSession] = useState<any>(null);
@@ -50,6 +51,7 @@ function App() {
             <Route path="setup" element={<DraftSetup />} />
             <Route path="profile" element={<Profile />} />
             <Route path="dashboard" element={<DraftDashboard />} />
+            <Route path="grid" element={<DraftGrid />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

@@ -7,6 +7,7 @@ export interface Team {
     owner_name: string;
     user_id?: string | null;
     draft_id: string;
+    is_queue_revealed?: boolean;
 }
 
 export interface DraftPick {
@@ -31,6 +32,12 @@ export interface KeeperEntry {
     player_id: string;
     team_id: string;
     draft_id: string;
+}
+
+export interface UserQueue {
+    team_id: string;
+    draft_id: string;
+    queue: string[]; // array of player_ids
 }
 
 // We still allow a draftId parameter so existing imports don't break,

@@ -17,8 +17,36 @@ export function DraftOrderSetup({ draftId, onStartDraft, starting }: DraftOrderS
     const [teams, setTeams] = useState<Team[]>([]);
 
     useEffect(() => {
+        const defaultOrder = [
+            "Randos",
+            "HollidayInn",
+            "Mutilation",
+            "Schoolyard",
+            "Baby Bombers",
+            "Acuna Matata",
+            "Black Whale",
+            "Roman legion",
+            "GiantBALLS",
+            "Billy's Beaners"
+        ];
+
         supabase.from('teams').select('*').eq('draft_id', draftId).then(({ data }) => {
-            if (data) setTeams(data);
+            if (data) {
+                const sortedData = [...data].sort((a, b) => {
+                    const indexA = defaultOrder.indexOf(a.name);
+                    const indexB = defaultOrder.indexOf(b.name);
+                    
+                    // If both are in the default list, sort by their index
+                    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                    // If only 'a' is in the default list, it comes first
+                    if (indexA !== -1) return -1;
+                    // If only 'b' is in the default list, it comes first
+                    if (indexB !== -1) return 1;
+                    // Otherwise, keep their original order (or sort alphabetically if preferred, but original order is safer)
+                    return 0;
+                });
+                setTeams(sortedData);
+            }
         });
     }, [draftId]);
 

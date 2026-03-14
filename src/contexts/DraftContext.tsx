@@ -1,12 +1,13 @@
 import React, { createContext, useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import type { Team, DraftPick, DraftLogEntry, KeeperEntry } from '../hooks/useDraftState';
+import type { Team, DraftPick, DraftLogEntry, KeeperEntry, UserQueue } from '../hooks/useDraftState';
 
 interface DraftContextValue {
     teams: Team[];
     draftOrder: DraftPick[];
     draftLog: DraftLogEntry[];
     keepers: KeeperEntry[];
+    userQueues: UserQueue[];
     currentPick: DraftPick | null;
     currentTeam: Team | null;
     loading: boolean;
@@ -20,6 +21,7 @@ export function DraftProvider({ children, draftId }: { children: React.ReactNode
     const [draftOrder, setDraftOrder] = useState<DraftPick[]>([]);
     const [draftLog, setDraftLog] = useState<DraftLogEntry[]>([]);
     const [keepers, setKeepers] = useState<KeeperEntry[]>([]);
+    const [userQueues, setUserQueues] = useState<UserQueue[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -28,6 +30,7 @@ export function DraftProvider({ children, draftId }: { children: React.ReactNode
             setDraftOrder([]);
             setDraftLog([]);
             setKeepers([]);
+            setUserQueues([]);
             setLoading(false);
             return;
         }
@@ -60,6 +63,12 @@ export function DraftProvider({ children, draftId }: { children: React.ReactNode
                     fetchKeepers();
                 }
             })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'user_queues' }, (payload) => {
+                const queue = (payload.new || payload.old) as any;
+                if (!queue.draft_id || queue.draft_id === draftId) {
+                    fetchUserQueues();
+                }
+            })
             .subscribe();
 
         return () => {
@@ -74,7 +83,8 @@ export function DraftProvider({ children, draftId }: { children: React.ReactNode
             fetchTeams(),
             fetchDraftOrder(),
             fetchDraftLog(),
-            fetchKeepers()
+            fetchKeepers(),
+            fetchUserQueues()
         ]);
         setLoading(false);
     }
@@ -103,6 +113,12 @@ export function DraftProvider({ children, draftId }: { children: React.ReactNode
         if (data) setKeepers(data);
     }
 
+    async function fetchUserQueues() {
+        if (!draftId) return;
+        const { data } = await supabase.from('user_queues').select('*').eq('draft_id', draftId);
+        if (data) setUserQueues(data);
+    }
+
     const currentPick = useMemo(() => {
         if (draftOrder.length === 0) return null;
         const nextPickIndex = draftLog.length;
@@ -116,7 +132,7 @@ export function DraftProvider({ children, draftId }: { children: React.ReactNode
     }, [currentPick, teams]);
 
     return (
-        <DraftContext.Provider value={{ teams, draftOrder, draftLog, keepers, currentPick, currentTeam, loading, fetchState }}>
+        <DraftContext.Provider value={{ teams, draftOrder, draftLog, keepers, userQueues, currentPick, currentTeam, loading, fetchState }}>
             {children}
         </DraftContext.Provider>
     );

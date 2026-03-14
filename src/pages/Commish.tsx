@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useDraftState } from '../hooks/useDraftState';
 import { useBigBoardPlayers } from '../hooks/usePlayers';
@@ -8,7 +8,7 @@ import { ConfirmModal } from '../components/ConfirmModal';
 
 export function Commish() {
     const activeDraftId = localStorage.getItem('active_draft_id');
-    const { currentPick, draftLog, teams, fetchState } = useDraftState(activeDraftId);
+    const { currentPick, draftLog, teams, userQueues, fetchState } = useDraftState(activeDraftId);
     const { players } = useBigBoardPlayers(activeDraftId);
 
     const [undoing, setUndoing] = useState(false);
@@ -21,6 +21,23 @@ export function Commish() {
             setForceTeamId(currentPick.current_team_id);
         }
     }, [currentPick]);
+
+    const suggestedPlayer = useMemo(() => {
+        if (!currentPick || !teams || !userQueues || !players) return null;
+        const team = teams.find(t => t.id === currentPick.current_team_id);
+        if (team?.is_queue_revealed) {
+            const queueData = userQueues.find(q => q.team_id === team.id);
+            if (queueData && queueData.queue.length > 0) {
+                for (const pid of queueData.queue) {
+                    const p = players.find(x => x.id === pid);
+                    if (p && !p.is_drafted) {
+                        return p;
+                    }
+                }
+            }
+        }
+        return null;
+    }, [currentPick, teams, userQueues, players]);
 
     const [csvFile, setCsvFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
@@ -368,6 +385,24 @@ Raw Doggin' Randos,11365`;
                                 setForcePlayerId(''); // Reset selection when searching
                             }}
                         />
+                        {suggestedPlayer && (
+                            <button
+                                className="btn"
+                                onClick={() => {
+                                    setForcePlayerSearch(suggestedPlayer.name);
+                                    setForcePlayerId(suggestedPlayer.id);
+                                }}
+                                style={{
+                                    backgroundColor: 'var(--bg-tertiary)',
+                                    border: '1px dashed var(--accent-primary)',
+                                    color: 'var(--text-primary)',
+                                    padding: '0.25rem 0.5rem',
+                                    fontSize: '0.875rem'
+                                }}
+                            >
+                                ✨ Use Queue Suggestion: {suggestedPlayer.name}
+                            </button>
+                        )}
                         {forcePlayerSearch && (
                             <select value={forcePlayerId} onChange={e => setForcePlayerId(e.target.value)} size={5} style={{ height: 'auto' }}>
                                 <option value="" disabled>Select Player...</option>

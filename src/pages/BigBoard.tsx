@@ -8,6 +8,9 @@ import { Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ConfirmModal } from '../components/ConfirmModal';
 
+import { DraftQueue } from '../components/DraftQueue';
+import { useUserQueue } from '../hooks/useUserQueue';
+
 export function BigBoard() {
     const activeDraftId = localStorage.getItem('active_draft_id');
     const { players, loading } = useBigBoardPlayers(activeDraftId);
@@ -22,6 +25,8 @@ export function BigBoard() {
 
     const [userId, setUserId] = useState<string | null>(null);
     const [userTeamId, setUserTeamId] = useState<string | null>(null);
+
+    const { addToQueue, queuedPlayers } = useUserQueue(activeDraftId, userId, players);
 
     useEffect(() => {
         supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id || null));
@@ -109,8 +114,9 @@ export function BigBoard() {
     };
 
     return (
-        <div className="flex flex-col gap-6 w-full h-full">
-            <div className="flex justify-between items-center">
+        <div style={{ display: 'flex', flexDirection: 'row', width: '100%', height: 'calc(100vh - 64px)' }}>
+            <div className="flex flex-col gap-6 w-full h-full" style={{ flex: 1, paddingRight: '1rem', overflowY: 'auto' }}>
+                <div className="flex justify-between items-center">
                 <h2>Big Board</h2>
                 <div className="flex gap-4">
                     <input
@@ -188,10 +194,24 @@ export function BigBoard() {
                                                     style={{
                                                         padding: '0.25rem 0.5rem',
                                                         fontSize: '0.875rem',
-                                                        opacity: (!currentPick || currentTeam?.id !== userTeamId) ? 0.5 : 1
+                                                        opacity: (!currentPick || currentTeam?.id !== userTeamId) ? 0.5 : 1,
+                                                        marginRight: '0.5rem'
                                                     }}
                                                 >
                                                     {draftingId === p.id ? 'Drafting...' : 'Draft'}
+                                                </button>
+                                                <button
+                                                    className="btn"
+                                                    onClick={() => addToQueue(p.id)}
+                                                    disabled={queuedPlayers.some(q => q.id === p.id)}
+                                                    style={{
+                                                        padding: '0.25rem 0.5rem',
+                                                        fontSize: '0.875rem',
+                                                        opacity: queuedPlayers.some(q => q.id === p.id) ? 0.5 : 1,
+                                                        backgroundColor: 'var(--bg-tertiary)'
+                                                    }}
+                                                >
+                                                    Queue
                                                 </button>
                                             </td>
                                         </tr>
@@ -212,6 +232,9 @@ export function BigBoard() {
                 onConfirm={confirmDraftPlayer}
                 onCancel={() => setPlayerToDraft(null)}
             />
+            </div>
+            
+            {userTeamId && <DraftQueue draftId={activeDraftId} userId={userId} allPlayers={players} />}
         </div>
     );
 }
